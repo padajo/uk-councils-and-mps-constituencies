@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UK Council Boundaries</title>
+<style>
+/* Layout: control panel left, outline-only map right; stacks on phones. */
+:root{
+  --bg:#f4f6f5; --panel:#ffffff; --fg:#1b2726; --muted:#586866; --line:#d3dad8;
+  --map:#e6ecea; --county:#1b5f9e; --district:#c05a12; --unitary:#7b3fa0; --pcon:#23813f; --pick:#d4261c;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1514; --panel:#172120; --fg:#e5ecea; --muted:#9db1ae; --line:#2a3836;
+    --map:#0c1211; --county:#6db3f2; --district:#f2a35c; --unitary:#c99cf2; --pcon:#6fd48c; --pick:#ff6b5e; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1514; --panel:#172120; --fg:#e5ecea; --muted:#9db1ae; --line:#2a3836;
+  --map:#0c1211; --county:#6db3f2; --district:#f2a35c; --unitary:#c99cf2; --pcon:#6fd48c; --pick:#ff6b5e; color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;box-sizing:border-box}
+.app{display:grid;grid-template-columns:310px minmax(0,1fr);gap:14px;height:100%;min-height:0}
+.side{display:flex;flex-direction:column;gap:14px;min-height:0;min-width:0;overflow-y:auto}
+h1{font-size:20px;line-height:1.2;margin:0 0 4px;text-wrap:balance;letter-spacing:-.01em}
+.lede{margin:0;color:var(--muted)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+.box h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
+.row{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer}
+.row input{width:16px;height:16px;margin:0;accent-color:var(--fg)}
+.sw{flex:none;width:26px;height:0;border-top-style:solid;border-top-color:currentColor}
+.row .lbl{flex:1;min-width:0}
+.row .lbl small{display:block;color:var(--muted);font-size:12px}
+.row .n{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.row:focus-within{outline:2px solid var(--fg);outline-offset:2px;border-radius:4px}
+.hit{display:flex;gap:10px;align-items:baseline;padding:4px 0}
+.hit .sw{align-self:center}
+.hit b{font-weight:600}
+.hit span{color:var(--muted);font-size:12px}
+.hint{color:var(--muted);margin:0;font-size:13px}
+.drop{border:1px dashed var(--line);border-radius:6px;padding:10px;font-size:13px;color:var(--muted)}
+.drop label{display:inline-block;margin-top:6px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;color:var(--fg);cursor:pointer;background:var(--bg)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+.drop input:focus-visible + span{outline:2px solid var(--fg);outline-offset:3px}
+.credit{font-size:11px;color:var(--muted);margin:0}
+#mapwrap{position:relative;min-height:0;min-width:0}
+#map{position:absolute;inset:0;background:var(--map);border:1px solid var(--line);border-radius:8px}
+#status{position:absolute;inset:auto 12px 12px 12px;z-index:900;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:13px;pointer-events:none}
+@media (max-width:760px){
+  body{padding-block:8px}
+  .app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(320px,1fr);height:auto;min-height:100%}
+  .side{overflow:visible}
+  #mapwrap{height:68vh;min-height:320px}
+}
+/* Minimal Leaflet CSS (the library stylesheet cannot be loaded here) */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;outline-offset:1px;touch-action:none;user-select:none}
+.leaflet-pane{z-index:400}.leaflet-overlay-pane{z-index:400}.leaflet-map-pane canvas{z-index:100}
+.leaflet-pane>svg,.leaflet-pane>canvas{max-width:none!important;max-height:none!important}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-interactive{cursor:pointer}
+.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab{cursor:grabbing}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-top .leaflet-control{margin-top:10px}.leaflet-left .leaflet-control{margin-left:10px}
+.leaflet-bar{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.leaflet-bar a{display:block;width:32px;height:32px;line-height:32px;text-align:center;text-decoration:none;font-size:18px;background:var(--panel);color:var(--fg);border-bottom:1px solid var(--line)}
+.leaflet-bar a:last-child{border-bottom:0}
+.leaflet-bar a:hover,.leaflet-bar a:focus-visible{background:var(--bg)}
+.leaflet-disabled{opacity:.4;cursor:default}
+</style>
+</head>
+<body>
+
+
+<div class="app">
+  <aside class="side">
+    <div>
+      <h1>UK council boundaries</h1>
+      <p class="lede">Every level of local government as outlines, so the tiers can overlap without hiding each other.</p>
+    </div>
+    <div class="box">
+      <h2>Layers</h2>
+      <label class="row"><input type="checkbox" id="t-county" checked><span class="sw" style="color:var(--county);border-top-width:4px"></span><span class="lbl">County councils<small>Top tier, England</small></span><span class="n" id="n-county"></span></label>
+      <label class="row"><input type="checkbox" id="t-district" checked><span class="sw" style="color:var(--district);border-top-width:2px"></span><span class="lbl">District councils<small>Lower tier, England</small></span><span class="n" id="n-district"></span></label>
+      <label class="row"><input type="checkbox" id="t-unitary" checked><span class="sw" style="color:var(--unitary);border-top-width:3px"></span><span class="lbl">Unitary and single-tier<small>England, Scotland, Wales, NI</small></span><span class="n" id="n-unitary"></span></label>
+      <label class="row" id="pcon-row" hidden><input type="checkbox" id="t-pcon" checked><span class="sw" style="color:var(--pcon);border-top-width:2px;border-top-style:dashed"></span><span class="lbl">Constituencies<small id="pcon-file">Your file</small></span><span class="n" id="n-pcon"></span></label>
+    </div>
+    <div class="box">
+      <h2>Constituencies</h2>
+      <div class="drop" id="drop">
+        Westminster constituencies (July 2024) are loaded. To swap in a different file, drop it on the map or choose it here.
+        <br><label><input type="file" id="file" accept=".geojson,.json,application/geo+json,application/json"><span>Choose file</span></label>
+      </div>
+    </div>
+    <div class="box">
+      <h2>At the point you click</h2>
+      <div id="hits"><p class="hint">Click anywhere on the map to see which county, district, unitary and constituency it falls in.</p></div>
+    </div>
+    <p class="credit">Contains National Statistics data and OS data, Crown copyright and database right 2025. Open Government Licence v3.0. Boundaries are generalised (500m), so edges are approximate.</p>
+  </aside>
+  <div id="mapwrap"><div id="map" aria-label="Map of UK council boundaries"></div><div id="status">Loading boundaries...</div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+  var TIERS={
+    county:{label:'County council',weight:3.2,dash:null},
+    district:{label:'District council',weight:1.2,dash:null},
+    unitary:{label:'Unitary / single-tier',weight:2,dash:null},
+    pcon:{label:'Constituency',weight:1.4,dash:'5 4'}
+  };
+  var map=L.map('map',{zoomControl:true,attributionControl:false,preferCanvas:true,minZoom:4,zoomSnap:0.5}).setView([54.4,-3.2],6);
+  var cv=L.canvas({padding:0.5});
+  var layers={}, features={}, marker=null;
+  var statusEl=document.getElementById('status');
+
+  function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+  function styleFor(t){
+    return {renderer:cv,color:css('--'+t),weight:TIERS[t].weight,dashArray:TIERS[t].dash,opacity:.95,fill:true,fillOpacity:0,lineJoin:'round'};
+  }
+  function restyle(){ Object.keys(layers).forEach(function(t){layers[t].setStyle(styleFor(t)); }); if(marker) marker.setStyle({color:css('--pick'),fillColor:css('--pick')}); }
+
+  function nameOf(p,t){
+    if(t!=='pcon') return p.name;
+    var k=Object.keys(p).filter(function(x){return /NM$/i.test(x)&&!/NMW$/i.test(x);})[0];
+    return k?p[k]:(p.name||p.NAME||'Constituency');
+  }
+
+  function addLayer(t,geo){
+    if(layers[t]){map.removeLayer(layers[t]);}
+    var fc=geo.features.filter(function(f){return t==='pcon'||f.properties.tier===t;});
+    features[t]=fc;
+    layers[t]=L.geoJSON({type:'FeatureCollection',features:fc},{style:function(){return styleFor(t);},smoothFactor:0.6});
+    document.getElementById('n-'+t).textContent=fc.length;
+    var box=document.getElementById('t-'+t);
+    if(box.checked) layers[t].addTo(map);
+    return fc.length;
+  }
+
+  function order(){ ['district','unitary','county','pcon'].forEach(function(t){ if(layers[t]&&map.hasLayer(layers[t])) layers[t].bringToFront(); }); }
+
+  ['county','district','unitary','pcon'].forEach(function(t){
+    document.getElementById('t-'+t).addEventListener('change',function(e){
+      if(!layers[t]) return;
+      if(e.target.checked){layers[t].addTo(map);order();} else {map.removeLayer(layers[t]);}
+    });
+  });
+
+  fetch('uk_local_government_tiers.geojson').then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(geo){
+    ['district','unitary','county'].forEach(function(t){addLayer(t,geo);});
+    order(); statusEl.hidden=true;
+  }).catch(function(){
+    statusEl.textContent='Could not load uk_local_government_tiers.geojson. Drop it onto the map to load it.';
+  });
+  fetch('uk_constituencies.geojson').then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(geo){
+    addLayer('pcon',geo);
+    document.getElementById('pcon-row').hidden=false;
+    document.getElementById('pcon-file').textContent='Westminster, July 2024';
+    order();
+  }).catch(function(){});
+
+  // point in polygon lookup
+  function inRing(x,y,ring){var c=false;for(var i=0,j=ring.length-1;i<ring.length;j=i++){var xi=ring[i][0],yi=ring[i][1],xj=ring[j][0],yj=ring[j][1];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}return c;}
+  function inPoly(x,y,poly){if(!inRing(x,y,poly[0]))return false;for(var h=1;h<poly.length;h++){if(inRing(x,y,poly[h]))return false;}return true;}
+  function inGeom(x,y,g){
+    if(g.type==='Polygon') return inPoly(x,y,g.coordinates);
+    if(g.type==='MultiPolygon'){for(var i=0;i<g.coordinates.length;i++){if(inPoly(x,y,g.coordinates[i]))return true;}}
+    return false;
+  }
+
+  var hitsEl=document.getElementById('hits');
+  map.on('click',function(e){
+    var x=e.latlng.lng,y=e.latlng.lat,out=[];
+    ['county','district','unitary','pcon'].forEach(function(t){
+      (features[t]||[]).forEach(function(f){ if(inGeom(x,y,f.geometry)) out.push({t:t,name:nameOf(f.properties,t),sub:t==='pcon'?'':(f.properties.subtype||'')}); });
+    });
+    if(marker) map.removeLayer(marker);
+    marker=L.circleMarker(e.latlng,{renderer:cv,radius:5,color:css('--pick'),fillColor:css('--pick'),fillOpacity:1,weight:2,interactive:false}).addTo(map);
+    hitsEl.textContent='';
+    if(!out.length){var p=document.createElement('p');p.className='hint';p.textContent='No area here. Try a point on land.';hitsEl.appendChild(p);return;}
+    out.forEach(function(o){
+      var d=document.createElement('div');d.className='hit';
+      var s=document.createElement('span');s.className='sw';s.style.color='var(--'+o.t+')';s.style.borderTopWidth=Math.max(2,TIERS[o.t].weight)+'px';s.style.borderTopStyle=TIERS[o.t].dash?'dashed':'solid';
+      var b=document.createElement('b');b.textContent=o.name;
+      var m=document.createElement('span');m.textContent=TIERS[o.t].label+(o.sub&&o.sub!=='county council'&&o.sub!=='district council'?' ('+o.sub+')':'');
+      var w=document.createElement('div');w.appendChild(b);w.appendChild(document.createElement('br'));w.appendChild(m);
+      d.appendChild(s);d.appendChild(w);hitsEl.appendChild(d);
+    });
+  });
+
+  // user-supplied constituency layer
+  function readFile(file){
+    var fr=new FileReader();
+    fr.onload=function(){
+      try{
+        var geo=JSON.parse(fr.result);
+        if(!geo.features) throw new Error('not a FeatureCollection');
+        var first=geo.features[0]&&geo.features[0].properties||{};
+        var isTiers=first.tier!==undefined;
+        if(isTiers){ ['district','unitary','county'].forEach(function(t){addLayer(t,geo);}); order(); statusEl.hidden=true; return; }
+        addLayer('pcon',geo);
+        document.getElementById('pcon-row').hidden=false;
+        document.getElementById('pcon-file').textContent=file.name;
+        order(); statusEl.hidden=true;
+      }catch(err){
+        statusEl.hidden=false; statusEl.textContent='That file could not be read as GeoJSON.';
+      }
+    };
+    fr.readAsText(file);
+  }
+  document.getElementById('file').addEventListener('change',function(e){ if(e.target.files[0]) readFile(e.target.files[0]); });
+  var wrap=document.getElementById('mapwrap');
+  ['dragover','dragenter'].forEach(function(n){wrap.addEventListener(n,function(e){e.preventDefault();});});
+  wrap.addEventListener('drop',function(e){e.preventDefault(); if(e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);});
+
+  // follow theme changes
+  try{ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',restyle);}catch(e){}
+  new MutationObserver(restyle).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+})();
+</script>
+
+</body>
+</html>
