@@ -66,6 +66,12 @@ County councils and single-tier areas come from the ONS Counties and Unitary Aut
 
 BUC means ultra generalised (500m), clipped to the coastline.
 
+Actual data sources used for the current version:
+
+- [Counties and Unitary Authorities (December 2025) BUC](https://open-geography-portalx-ons.hub.arcgis.com/datasets/ons::counties-and-unitary-authorities-december-2025-boundaries-uk-buc)
+- [Local Authority Districts (May 2025) BUC](https://open-geography-portalx-ons.hub.arcgis.com/datasets/ons::local-authority-districts-may-2025-boundaries-uk-buc-2)
+- [Westminster Parliamentary Constituencies (July 2024) BUC](https://open-geography-portalx-ons.hub.arcgis.com/datasets/ons::westminster-parliamentary-constituencies-july-2024-boundaries-uk-buc-2)
+
 ## Updating the data
 
 1. Download the newer GeoJSON files from the ONS Open Geography Portal (same BUC resolution).
